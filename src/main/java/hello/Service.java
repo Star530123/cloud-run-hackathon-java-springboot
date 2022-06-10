@@ -1,5 +1,8 @@
 package hello;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -34,6 +37,7 @@ public class Service {
     private Response findNearestPlayer(Request.Arena arena, Request.PlayerState myState,
             PriorityQueue<Request.PlayerState> players, Set<String> blocks) {
         Request.PlayerState player = players.poll();
+
         assert player != null;
         int x = player.x - myState.x;
         int y = player.y - myState.y;
