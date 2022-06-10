@@ -24,7 +24,7 @@ public class Service {
         Request.PlayerState myState = request.arena.state.get(self);
         Set<String> blocks = new HashSet<>();
         PriorityQueue<Request.PlayerState> players = new PriorityQueue<>(request.arena.state.size(), priority(myState));
-        updateData(players, request.arena.state.values(), blocks);
+        updateData(myState, players, request.arena.state.values(), blocks);
         if (myState.wasHit) {
             Request.PlayerState attacker = attackedBy(myState, players);
             if (attacker == null) return Response.LEFT;
@@ -72,11 +72,12 @@ public class Service {
         return x >= 0 && x < dims.get(0) && y >= 0 && y < dims.get(1) && !blocks.contains(String.format(blockFormat, x, y));
     }
 
-    private void updateData(PriorityQueue<Request.PlayerState> pq, Collection<Request.PlayerState> players, Set<String> blocks) {
+    private void updateData(Request.PlayerState myState, PriorityQueue<Request.PlayerState> pq, Collection<Request.PlayerState> players, Set<String> blocks) {
         for (Request.PlayerState player : players) {
-            pq.offer(player);
             player.d = Direction.findDirection(player.direction);
             blocks.add(String.format(blockFormat, player.x, player.y));
+            if (myState == player) continue;
+            pq.offer(player);
         }
     }
 
@@ -115,7 +116,6 @@ public class Service {
             for (int i = 0; i < size; i++) {
                 Request.PlayerState player = players.poll();
                 visitedPlayers.add(player);
-                if (player == myState) continue;
                 if (isInAttackRange(myState, player)) {
                     LOGGER.info(String.format("my location: [%d,%d]", myState.x, myState.y));
                     LOGGER.info(String.format("attaced location: [%d,%d]", player.x, player.y));
