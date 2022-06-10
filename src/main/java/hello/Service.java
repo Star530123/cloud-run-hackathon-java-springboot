@@ -97,6 +97,7 @@ public class Service {
         Direction attackerDirection = attacker.d;
         int xBound = Math.max(attacker.x + attackerDirection.getAttackRange()[0], 0);
         int yBound = Math.max(attacker.y + attackerDirection.getAttackRange()[1], 0);
+        if (xBound != 0 && yBound != 0) return false;
         return ((attacked.x - xBound) * (attacked.x - attacker.x) <= 0) && ((attacked.y - yBound) * (attacked.y - attacker.y) <= 0);
     }
 
