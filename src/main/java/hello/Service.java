@@ -115,6 +115,7 @@ public class Service {
             for (int i = 0; i < size; i++) {
                 Request.PlayerState player = players.poll();
                 visitedPlayers.add(player);
+                if (player == myState) continue;
                 if (isInAttackRange(myState, player)) {
                     LOGGER.info(String.format("my location: [%d,%d]", myState.x, myState.y));
                     LOGGER.info(String.format("attaced location: [%d,%d]", player.x, player.y));
