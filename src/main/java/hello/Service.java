@@ -43,9 +43,9 @@ public class Service {
         int y = player.y - myState.y;
         if (!canMove(arena, myState, blocks)) {
             return Response.LEFT;
-        } else return Response.MOVE;
-//        if (distanceToPlayer(myState, true, player) < distanceToPlayer(myState, player)) return Response.MOVE;
-//        else return Response.LEFT;
+        }
+        if (distanceToPlayer(myState, true, player) < distanceToPlayer(myState, player)) return Response.MOVE;
+        else return Response.LEFT;
     }
 
     private int distanceToPlayer(Request.PlayerState myState, Request.PlayerState player) {
