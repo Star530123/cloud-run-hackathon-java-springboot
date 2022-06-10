@@ -40,8 +40,12 @@ public class Service {
     private Response findNearestPlayer(Request.Arena arena, Request.PlayerState myState,
             PriorityQueue<Request.PlayerState> players, Set<String> blocks) {
         Request.PlayerState player = players.poll();
-
-        assert player != null;
+        if (player == null) {
+            if (!canMove(arena, myState, blocks)) {
+                return Response.LEFT;
+            }
+            return Response.MOVE;
+        }
         int x = player.x - myState.x;
         int y = player.y - myState.y;
         if (!canMove(arena, myState, blocks)) {
