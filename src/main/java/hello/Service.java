@@ -3,6 +3,7 @@ package hello;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -24,7 +25,7 @@ public class Service {
         updateData(players, request.arena.state.values(), blocks);
         if (myState.wasHit) {
             Request.PlayerState attacker = attackedBy(myState, players);
-            assert attacker != null;
+            if (attacker == null) return Response.LEFT;
             if (!Direction.isFaceToFace(attacker.d, myState.d) && canMove(request.arena, myState, blocks)) {
                 return Response.MOVE;
             }
@@ -97,15 +98,29 @@ public class Service {
         Direction attackerDirection = attacker.d;
         int xBound = Math.max(attacker.x + attackerDirection.getAttackRange()[0], 0);
         int yBound = Math.max(attacker.y + attackerDirection.getAttackRange()[1], 0);
-        if (xBound != 0 && yBound != 0) return false;
-        return ((attacked.x - xBound) * (attacked.x - attacker.x) <= 0) && ((attacked.y - yBound) * (attacked.y - attacker.y) <= 0);
+        if (attacker.x - attacked.x == 0) {
+            return Math.min(yBound, attacker.y) <= attacked.y && attacked.y <= Math.max(yBound, attacker.y);
+        }else if (attacker.y - attacked.y == 0) {
+            return Math.min(xBound, attacker.x) <= attacked.x && attacked.x <= Math.max(xBound, attacker.x);
+        }
+        return false;
     }
 
     private boolean isEnemyInAttackRange(Request.PlayerState myState, PriorityQueue<Request.PlayerState> players) {
-        for (Request.PlayerState player : players) {
-            if (isInAttackRange(myState, player)) return true;
+        int size = players.size();
+        List<Request.PlayerState> visitedPlayers = new ArrayList<>();
+        try {
+            for (int i = 0; i < size; i++) {
+                Request.PlayerState player = players.poll();
+                visitedPlayers.add(player);
+                if (isInAttackRange(myState, player)) return true;
+            }
+            return false;
+        } finally {
+            for (Request.PlayerState player : visitedPlayers) {
+                players.offer(player);
+            }
         }
-        return false;
     }
 
     enum Response {
