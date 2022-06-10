@@ -1,0 +1,180 @@
+package hello;
+
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.PriorityQueue;
+import java.util.Set;
+
+/**
+ * @author StarL
+ */
+public class Service {
+
+    private static final String blockFormat = "%d,%d";
+    public Response strategy(Request request) {
+        String self = request._links.self.href;
+        Request.PlayerState myState = request.arena.state.get(self);
+        Set<String> blocks = new HashSet<>();
+        PriorityQueue<Request.PlayerState> players = new PriorityQueue<>(request.arena.state.size(), priority(myState));
+        updateData(players, request.arena.state.values(), blocks);
+        if (myState.wasHit) {
+            Request.PlayerState attacker = attackedBy(myState, players);
+            assert attacker != null;
+            if (!Direction.isFaceToFace(attacker.d, myState.d) && canMove(request.arena, myState, blocks)) {
+                return Response.MOVE;
+            }
+            return Response.LEFT;
+        }
+        if (isEnemyInAttackRange(myState, players)) return Response.ATTACK;
+        return findNearestPlayer(request.arena, myState, players, blocks);
+    }
+
+    private Response findNearestPlayer(Request.Arena arena, Request.PlayerState myState,
+            PriorityQueue<Request.PlayerState> players, Set<String> blocks) {
+        Request.PlayerState player = players.poll();
+        assert player != null;
+        int x = player.x - myState.x;
+        int y = player.y - myState.y;
+        if (!canMove(arena, myState, blocks)) {
+            return Response.LEFT;
+        }
+        if (distanceToPlayer(myState, true, player) < distanceToPlayer(myState, player)) return Response.MOVE;
+        else return Response.LEFT;
+    }
+
+    private int distanceToPlayer(Request.PlayerState myState, Request.PlayerState player) {
+        return distanceToPlayer(myState, false, player);
+    }
+
+    private int distanceToPlayer(Request.PlayerState myState, boolean move, Request.PlayerState player) {
+        int moveX = move ? myState.d.getMove()[0] : 0;
+        int moveY = move ? myState.d.getMove()[1] : 0;
+        return Math.abs(player.x + moveX - myState.x) + Math.abs(player.y + moveY - myState.y);
+    }
+
+    private boolean canMove (Request.Arena arena, Request.PlayerState myState, Set<String> blocks) {
+        return canMove(arena, myState.x, myState.y, myState.d,blocks);
+    }
+
+    private boolean canMove(Request.Arena arena, int x, int y, Direction d, Set<String> blocks) {
+        x = x + d.getMove()[0];
+        y = y + d.getMove()[1];
+        List<Integer> dims = arena.dims;
+        return x >= 0 && x < dims.get(0) && y >= 0 && y < dims.get(1) && !blocks.contains(String.format(blockFormat, x, y));
+    }
+
+    private void updateData(PriorityQueue<Request.PlayerState> pq, Collection<Request.PlayerState> players, Set<String> blocks) {
+        for (Request.PlayerState player : players) {
+            pq.offer(player);
+            player.d = Direction.findDirection(player.direction);
+            blocks.add(String.format(blockFormat, player.x, player.y));
+        }
+    }
+
+    private Request.PlayerState attackedBy(Request.PlayerState myState, PriorityQueue<Request.PlayerState> players) {
+        while (!players.isEmpty()) {
+            Request.PlayerState player = players.poll();
+            if (isInAttackRange(player, myState)) return player;
+        }
+        return null;
+    }
+
+    private Comparator<Request.PlayerState> priority(Request.PlayerState myState) {
+        return ((o1, o2) -> {
+            int o1Score = Math.abs(myState.x - o1.x) + Math.abs(myState.y - o1.y);
+            int o2Score = Math.abs(myState.x - o2.x) + Math.abs(myState.y - o2.y);
+            return o1Score - o2Score;
+        });
+    }
+
+    private boolean isInAttackRange(Request.PlayerState attacker, Request.PlayerState attacked) {
+        Direction attackerDirection = attacker.d;
+        int xBound = Math.max(attacker.x + attackerDirection.getAttackRange()[0], 0);
+        int yBound = Math.max(attacker.y + attackerDirection.getAttackRange()[1], 0);
+        return ((attacked.x - xBound) * (attacked.x - attacker.x) <= 0) && ((attacked.y - yBound) * (attacked.y - attacker.y) <= 0);
+    }
+
+    private boolean isEnemyInAttackRange(Request.PlayerState myState, PriorityQueue<Request.PlayerState> players) {
+        for (Request.PlayerState player : players) {
+            if (isInAttackRange(myState, player)) return true;
+        }
+        return false;
+    }
+
+    enum Response {
+        MOVE("F"), RIGHT("R"), LEFT("L"), ATTACK("T");
+        private final String command;
+
+        Response(String command) {
+
+            this.command = command;
+        }
+
+        public String getCommand() {
+            return command;
+        }
+
+    }
+
+    enum Direction {
+        NORTH("N", new int[]{0, -3}, new int[]{0, -1}, 0),
+        EAST("E", new int[]{3, 0}, new int[]{1,0},1),
+        SOUTH("S", new int[]{0, 3}, new int[]{0,1}, 2),
+        WEST("W", new int[]{-3, 0}, new int[]{-1,0},3);
+
+        private final String symbol;
+        private final int[] attackRange;
+        private final int[] move;
+        private final int val;
+
+        Direction(String symbol, int[] attackRange, int[] move, int val) {
+            this.symbol = symbol;
+            this.attackRange = attackRange;
+            this.move = move;
+            this.val = val;
+        }
+
+        public static Direction findDirection(String val) {
+            switch (val) {
+                case "N":
+                    return NORTH;
+                case "W":
+                    return WEST;
+                case "E":
+                    return EAST;
+                case "S":
+                default:
+                    return SOUTH;
+            }
+        }
+
+        public Direction nextDirection(Response response) {
+            switch (response) {
+                case LEFT:
+                    return values()[(this.val + 3) % 4];
+                case RIGHT:
+                    return values()[(this.val + 1) % 4];
+                default:
+                    return this;
+            }
+        }
+
+        public static boolean isFaceToFace(Direction d1, Direction d2) {
+            return (d1.val + 2) % values().length == d2.val;
+        }
+
+        public String getSymbol() {
+            return symbol;
+        }
+
+        public int[] getAttackRange() {
+            return attackRange;
+        }
+
+        public int[] getMove() {
+            return move;
+        }
+    }
+}
