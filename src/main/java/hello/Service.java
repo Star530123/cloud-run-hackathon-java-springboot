@@ -22,6 +22,10 @@ public class Service {
     private Request.PlayerState myState;
     private Request.Arena arena;
     private Set<String> blocks;
+    private boolean canMoveDirectly;
+    private boolean canMoveLeft;
+    private boolean canMoveRight;
+    private boolean canMoveBack;
 
     private static final Set<String> DANGER_ZONES = new HashSet<>();
 
@@ -45,19 +49,9 @@ public class Service {
     private Response findEscapeRoute(Request.PlayerState attacker) {
         LOGGER.info(String.format("attacker: [%d,%d]", attacker.x, attacker.y));
         int bestDirection = (attacker.d.val + 1) % 2;
-        Direction left = myState.d.nextDirection(Response.LEFT);
-        Direction right = myState.d.nextDirection(Response.RIGHT);
-        Direction back = myState.d.nextDirection(Response.RIGHT).nextDirection(Response.RIGHT);
-        boolean canMoveDirectly = canMove();
-        boolean canMoveLeft = canMove(myState.x, myState.y , left);
-        boolean canMoveRight = canMove(myState.x, myState.y , right);
-        boolean canMoveBack = canMove(myState.x, myState.y , back);
 
         if (myState.d.val % 2 == bestDirection && canMoveDirectly) return Response.MOVE;
-        if (canMoveLeft || canMoveBack) return Response.LEFT;
-        if (canMoveRight) return Response.RIGHT;
-
-        return Response.MOVE;
+        return decideDirection();
     }
 
     private Response leaveDangerZones() {
@@ -70,6 +64,17 @@ public class Service {
         this.arena = request.arena;
         LOGGER.info(String.format("dims: [%s]", request.arena.dims));
         if(DANGER_ZONES.size() == 0) setDangerZone(request.arena.dims);
+        setCanMoveDirection();
+    }
+
+    private void setCanMoveDirection() {
+        Direction left = myState.d.nextDirection(Response.LEFT);
+        Direction right = myState.d.nextDirection(Response.RIGHT);
+        Direction back = myState.d.nextDirection(Response.RIGHT).nextDirection(Response.RIGHT);
+        this.canMoveDirectly = canMove();
+        this.canMoveLeft = canMove(myState.x, myState.y , left);
+        this.canMoveRight = canMove(myState.x, myState.y , right);
+        this.canMoveBack = canMove(myState.x, myState.y , back);
     }
 
     private void setDangerZone(List<Integer> dims) {
@@ -90,25 +95,29 @@ public class Service {
     private Response findNearestPlayer(PriorityQueue<Request.PlayerState> players) {
         Request.PlayerState player = players.poll();
         if (player == null) {
-            if (!canMove()) {
-                return Response.LEFT;
-            }
-            return Response.MOVE;
+            if (canMoveDirectly) return Response.MOVE;
+            return decideDirection();
         }
+        if (distanceToPlayer(true, player) < distanceToPlayer(player)) return Response.MOVE;
+
         int x = player.x - myState.x;
-        int y = player.y - myState.y;
-        if (!canMove()) {
-            return Response.LEFT;
-        }
-        if (distanceToPlayer(myState, true, player) < distanceToPlayer(myState, player)) return Response.MOVE;
+        if (x > 0) return Response.RIGHT;
         else return Response.LEFT;
     }
 
-    private int distanceToPlayer(Request.PlayerState myState, Request.PlayerState player) {
-        return distanceToPlayer(myState, false, player);
+    private Response decideDirection() {
+        if (canMoveLeft) return Response.LEFT;
+        if (canMoveRight) return Response.RIGHT;
+        if (canMoveBack) return Response.LEFT;
+
+        return Response.MOVE;
     }
 
-    private int distanceToPlayer(Request.PlayerState myState, boolean move, Request.PlayerState player) {
+    private int distanceToPlayer(Request.PlayerState player) {
+        return distanceToPlayer(false, player);
+    }
+
+    private int distanceToPlayer(boolean move, Request.PlayerState player) {
         int moveX = move ? myState.d.getMove()[0] : 0;
         int moveY = move ? myState.d.getMove()[1] : 0;
         return Math.abs(player.x + moveX - myState.x) + Math.abs(player.y + moveY - myState.y);
