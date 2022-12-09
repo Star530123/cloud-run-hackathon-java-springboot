@@ -144,24 +144,14 @@ public class Service {
     }
 
     private boolean isEnemyInAttackRange(PriorityQueue<Request.PlayerState> players) {
-        int size = players.size();
-        List<Request.PlayerState> visitedPlayers = new ArrayList<>();
-        try {
-            for (int i = 0; i < size; i++) {
-                Request.PlayerState player = players.poll();
-                visitedPlayers.add(player);
-                if (isInAttackRange(myState, player)) {
-                    LOGGER.info(String.format("my location: [%d,%d]", myState.x, myState.y));
-                    LOGGER.info(String.format("attaced location: [%d,%d]", player.x, player.y));
-                    return true;
-                }
-            }
-            return false;
-        } finally {
-            for (Request.PlayerState player : visitedPlayers) {
-                players.offer(player);
+        for(Request.PlayerState player: players) {
+            if (isInAttackRange(myState, player)) {
+                LOGGER.info(String.format("my location: [%d,%d]", myState.x, myState.y));
+                LOGGER.info(String.format("attaced location: [%d,%d]", player.x, player.y));
+                return true;
             }
         }
+        return false;
     }
 
     enum Response {
