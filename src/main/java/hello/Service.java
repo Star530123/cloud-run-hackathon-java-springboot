@@ -4,7 +4,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -18,38 +17,68 @@ public class Service {
     private static final Logger LOGGER
             = LoggerFactory.getLogger(Service.class);
 
-    private static final String BLOCK_FORMAT = "%d,%d";
+    private static final String POSITION_FORMAT = "%d,%d";
+
+    private Request.PlayerState myState;
+    private Request.Arena arena;
+    private Set<String> blocks;
+
+    private static final Set<String> DANGER_ZONES = new HashSet<>();
 
     public Response strategy(Request request) {
-        String selfHref = request._links.self.href;
-        Request.PlayerState myState = request.arena.state.get(selfHref);
-        Set<String> blocks = new HashSet<>();
-        PriorityQueue<Request.PlayerState> players = new PriorityQueue<>(request.arena.state.size(), priority(myState));
-        updateData(myState, players, request.arena.state.values(), blocks);
+        initialize(request);
+        this.blocks = new HashSet<>();
+        PriorityQueue<Request.PlayerState> players = new PriorityQueue<>(arena.state.size(), priority());
+        updateData(players);
+
+        if (isInDangerZones()) return leaveDangerZones();
         if (myState.wasHit) {
-            Request.PlayerState attacker = attackedBy(myState, players);
+            Request.PlayerState attacker = attackedBy(players);
             if (attacker == null) return Response.LEFT;
-            if (!Direction.isFaceToFace(attacker.d, myState.d) && canMove(request.arena, myState, blocks)) {
+            if (!Direction.isFaceToFace(attacker.d, myState.d) && canMove()) {
                 return Response.MOVE;
             }
             return Response.LEFT;
         }
-        if (isEnemyInAttackRange(myState, players)) return Response.ATTACK;
-        return findNearestPlayer(request.arena, myState, players, blocks);
+        if (isEnemyInAttackRange(players)) return Response.ATTACK;
+        return findNearestPlayer(players);
     }
 
-    private Response findNearestPlayer(Request.Arena arena, Request.PlayerState myState,
-            PriorityQueue<Request.PlayerState> players, Set<String> blocks) {
+    private Response leaveDangerZones() {
+        if(!canMove()) return Response.LEFT;
+        return Response.MOVE;
+    }
+
+    private void initialize(Request request) {
+        this.myState = request.arena.state.get(request._links.self.href);
+        this.arena = request.arena;
+        if(DANGER_ZONES.size() == 0) setDangerZone(request.arena.dims);
+    }
+
+    private void setDangerZone(List<Integer> dims) {
+        int x = dims.get(0);
+        int y = dims.get(1);
+        DANGER_ZONES.add(String.format(POSITION_FORMAT, 0, 0));
+        DANGER_ZONES.add(String.format(POSITION_FORMAT, x - 1, y - 1));
+        DANGER_ZONES.add(String.format(POSITION_FORMAT, x - 1, 0));
+        DANGER_ZONES.add(String.format(POSITION_FORMAT, 0, y - 1));
+    }
+
+    private boolean isInDangerZones() {
+        return DANGER_ZONES.contains(String.format(POSITION_FORMAT, myState.x, myState.y));
+    }
+
+    private Response findNearestPlayer(PriorityQueue<Request.PlayerState> players) {
         Request.PlayerState player = players.poll();
         if (player == null) {
-            if (!canMove(arena, myState, blocks)) {
+            if (!canMove()) {
                 return Response.LEFT;
             }
             return Response.MOVE;
         }
         int x = player.x - myState.x;
         int y = player.y - myState.y;
-        if (!canMove(arena, myState, blocks)) {
+        if (!canMove()) {
             return Response.LEFT;
         }
         if (distanceToPlayer(myState, true, player) < distanceToPlayer(myState, player)) return Response.MOVE;
@@ -66,27 +95,27 @@ public class Service {
         return Math.abs(player.x + moveX - myState.x) + Math.abs(player.y + moveY - myState.y);
     }
 
-    private boolean canMove (Request.Arena arena, Request.PlayerState myState, Set<String> blocks) {
-        return canMove(arena, myState.x, myState.y, myState.d,blocks);
+    private boolean canMove() {
+        return canMove(myState.x, myState.y, myState.d);
     }
 
-    private boolean canMove(Request.Arena arena, int x, int y, Direction d, Set<String> blocks) {
+    private boolean canMove(int x, int y, Direction d) {
         x = x + d.getMove()[0];
         y = y + d.getMove()[1];
         List<Integer> dims = arena.dims;
-        return x >= 0 && x < dims.get(0) && y >= 0 && y < dims.get(1) && !blocks.contains(String.format(BLOCK_FORMAT, x, y));
+        return x >= 0 && x < dims.get(0) && y >= 0 && y < dims.get(1) && !this.blocks.contains(String.format(POSITION_FORMAT, x, y));
     }
 
-    private void updateData(Request.PlayerState myState, PriorityQueue<Request.PlayerState> pq, Collection<Request.PlayerState> players, Set<String> blocks) {
-        for (Request.PlayerState player : players) {
+    private void updateData(PriorityQueue<Request.PlayerState> pq) {
+        for (Request.PlayerState player : this.arena.state.values()) {
             player.d = Direction.findDirection(player.direction);
-            blocks.add(String.format(BLOCK_FORMAT, player.x, player.y));
+            blocks.add(String.format(POSITION_FORMAT, player.x, player.y));
             if (myState == player) continue;
             pq.offer(player);
         }
     }
 
-    private Request.PlayerState attackedBy(Request.PlayerState myState, PriorityQueue<Request.PlayerState> players) {
+    private Request.PlayerState attackedBy(PriorityQueue<Request.PlayerState> players) {
         while (!players.isEmpty()) {
             Request.PlayerState player = players.poll();
             if (isInAttackRange(player, myState)) return player;
@@ -94,7 +123,7 @@ public class Service {
         return null;
     }
 
-    private Comparator<Request.PlayerState> priority(Request.PlayerState myState) {
+    private Comparator<Request.PlayerState> priority() {
         return ((o1, o2) -> {
             int o1Score = Math.abs(myState.x - o1.x) + Math.abs(myState.y - o1.y);
             int o2Score = Math.abs(myState.x - o2.x) + Math.abs(myState.y - o2.y);
@@ -114,7 +143,7 @@ public class Service {
         return false;
     }
 
-    private boolean isEnemyInAttackRange(Request.PlayerState myState, PriorityQueue<Request.PlayerState> players) {
+    private boolean isEnemyInAttackRange(PriorityQueue<Request.PlayerState> players) {
         int size = players.size();
         List<Request.PlayerState> visitedPlayers = new ArrayList<>();
         try {
