@@ -18,10 +18,11 @@ public class Service {
     private static final Logger LOGGER
             = LoggerFactory.getLogger(Service.class);
 
-    private static final String blockFormat = "%d,%d";
+    private static final String BLOCK_FORMAT = "%d,%d";
+
     public Response strategy(Request request) {
-        String self = request._links.self.href;
-        Request.PlayerState myState = request.arena.state.get(self);
+        String selfHref = request._links.self.href;
+        Request.PlayerState myState = request.arena.state.get(selfHref);
         Set<String> blocks = new HashSet<>();
         PriorityQueue<Request.PlayerState> players = new PriorityQueue<>(request.arena.state.size(), priority(myState));
         updateData(myState, players, request.arena.state.values(), blocks);
@@ -73,13 +74,13 @@ public class Service {
         x = x + d.getMove()[0];
         y = y + d.getMove()[1];
         List<Integer> dims = arena.dims;
-        return x >= 0 && x < dims.get(0) && y >= 0 && y < dims.get(1) && !blocks.contains(String.format(blockFormat, x, y));
+        return x >= 0 && x < dims.get(0) && y >= 0 && y < dims.get(1) && !blocks.contains(String.format(BLOCK_FORMAT, x, y));
     }
 
     private void updateData(Request.PlayerState myState, PriorityQueue<Request.PlayerState> pq, Collection<Request.PlayerState> players, Set<String> blocks) {
         for (Request.PlayerState player : players) {
             player.d = Direction.findDirection(player.direction);
-            blocks.add(String.format(blockFormat, player.x, player.y));
+            blocks.add(String.format(BLOCK_FORMAT, player.x, player.y));
             if (myState == player) continue;
             pq.offer(player);
         }
