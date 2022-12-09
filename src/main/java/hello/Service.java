@@ -30,6 +30,7 @@ public class Service {
         this.blocks = new HashSet<>();
         PriorityQueue<Request.PlayerState> players = new PriorityQueue<>(arena.state.size(), priority());
         updateData(players);
+        LOGGER.info(String.format("nearest player: [%d,%d]", players.peek().x, players.peek().y));
 
         if (isInDangerZones()) return leaveDangerZones();
         if (myState.wasHit) {
