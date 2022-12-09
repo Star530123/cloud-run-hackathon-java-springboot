@@ -65,6 +65,8 @@ public class Service {
     }
 
     private boolean isInDangerZones() {
+        LOGGER.info(String.format("my location: [%d,%d]", myState.x, myState.y));
+        LOGGER.info(String.format("danger zones: %s", DANGER_ZONES));
         return DANGER_ZONES.contains(String.format(POSITION_FORMAT, myState.x, myState.y));
     }
 
