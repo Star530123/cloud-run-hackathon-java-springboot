@@ -30,20 +30,32 @@ public class Service {
         this.blocks = new HashSet<>();
         PriorityQueue<Request.PlayerState> players = new PriorityQueue<>(arena.state.size(), priority());
         updateData(players);
-        LOGGER.info(String.format("nearest player: [%d,%d]", players.peek().x, players.peek().y));
+        if (players.peek() != null) LOGGER.info(String.format("nearest player: [%d,%d]", players.peek().x, players.peek().y));
 
         if (isInDangerZones()) return leaveDangerZones();
         if (myState.wasHit) {
             Request.PlayerState attacker = attackedBy(players);
             if (attacker == null) return Response.LEFT;
-            LOGGER.info(String.format("attacker: [%d,%d]", attacker.x, attacker.y));
-            if (!Direction.isFaceToFace(attacker.d, myState.d) && canMove()) {
-                return Response.MOVE;
-            }
-            return Response.LEFT;
+            return findEscapeRoute(attacker);
         }
         if (isEnemyInAttackRange(players)) return Response.ATTACK;
         return findNearestPlayer(players);
+    }
+
+    private Response findEscapeRoute(Request.PlayerState attacker) {
+        LOGGER.info(String.format("attacker: [%d,%d]", attacker.x, attacker.y));
+        int bestDirection = (attacker.d.val + 1) % 2;
+        Direction left = myState.d.nextDirection(Response.LEFT);
+        Direction right = myState.d.nextDirection(Response.RIGHT);
+        boolean canMoveDirectly = canMove();
+        boolean canLeftMove = canMove(myState.x, myState.y , left);
+        boolean canRightMove = canMove(myState.x, myState.y , right);
+
+        if (myState.d.val % 2 == bestDirection && canMoveDirectly) return Response.MOVE;
+        if (canLeftMove) return Response.LEFT;
+        if (canRightMove) return Response.RIGHT;
+
+        return Response.LEFT;
     }
 
     private Response leaveDangerZones() {
