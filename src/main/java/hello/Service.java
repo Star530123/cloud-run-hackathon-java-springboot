@@ -72,6 +72,7 @@ public class Service {
     private void setDangerZone(List<Integer> dims) {
         int x = dims.get(0);
         int y = dims.get(1);
+        LOGGER.info(String.format("dims: [%d,%d]", x, y));
         DANGER_ZONES.add(String.format(POSITION_FORMAT, 0, 0));
         DANGER_ZONES.add(String.format(POSITION_FORMAT, x - 1, y - 1));
         DANGER_ZONES.add(String.format(POSITION_FORMAT, x - 1, 0));
