@@ -35,6 +35,7 @@ public class Service {
         if (myState.wasHit) {
             Request.PlayerState attacker = attackedBy(players);
             if (attacker == null) return Response.LEFT;
+            LOGGER.info(String.format("attacker: [%d,%d]", attacker.x, attacker.y));
             if (!Direction.isFaceToFace(attacker.d, myState.d) && canMove()) {
                 return Response.MOVE;
             }
