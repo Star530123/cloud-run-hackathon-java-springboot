@@ -34,6 +34,7 @@ public class Service {
         this.blocks = new HashSet<>();
         PriorityQueue<Request.PlayerState> players = new PriorityQueue<>(arena.state.size(), priority());
         updateData(players);
+        setCanMoveDirection();
         if (players.peek() != null) LOGGER.info(String.format("nearest player: [%d,%d]", players.peek().x, players.peek().y));
 
         if (isInDangerZones()) return leaveDangerZones();
@@ -64,7 +65,6 @@ public class Service {
         this.arena = request.arena;
         LOGGER.info(String.format("dims: [%s]", request.arena.dims));
         if(DANGER_ZONES.size() == 0) setDangerZone(request.arena.dims);
-        setCanMoveDirection();
     }
 
     private void setCanMoveDirection() {
