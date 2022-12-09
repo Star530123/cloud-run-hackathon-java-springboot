@@ -47,15 +47,17 @@ public class Service {
         int bestDirection = (attacker.d.val + 1) % 2;
         Direction left = myState.d.nextDirection(Response.LEFT);
         Direction right = myState.d.nextDirection(Response.RIGHT);
+        Direction back = myState.d.nextDirection(Response.RIGHT).nextDirection(Response.RIGHT);
         boolean canMoveDirectly = canMove();
-        boolean canLeftMove = canMove(myState.x, myState.y , left);
-        boolean canRightMove = canMove(myState.x, myState.y , right);
+        boolean canMoveLeft = canMove(myState.x, myState.y , left);
+        boolean canMoveRight = canMove(myState.x, myState.y , right);
+        boolean canMoveBack = canMove(myState.x, myState.y , back);
 
         if (myState.d.val % 2 == bestDirection && canMoveDirectly) return Response.MOVE;
-        if (canLeftMove) return Response.LEFT;
-        if (canRightMove) return Response.RIGHT;
+        if (canMoveLeft || canMoveBack) return Response.LEFT;
+        if (canMoveRight) return Response.RIGHT;
 
-        return Response.LEFT;
+        return Response.MOVE;
     }
 
     private Response leaveDangerZones() {
@@ -66,13 +68,13 @@ public class Service {
     private void initialize(Request request) {
         this.myState = request.arena.state.get(request._links.self.href);
         this.arena = request.arena;
+        LOGGER.info(String.format("dims: [%s]", request.arena.dims));
         if(DANGER_ZONES.size() == 0) setDangerZone(request.arena.dims);
     }
 
     private void setDangerZone(List<Integer> dims) {
         int x = dims.get(0);
         int y = dims.get(1);
-        LOGGER.info(String.format("dims: [%d,%d]", x, y));
         DANGER_ZONES.add(String.format(POSITION_FORMAT, 0, 0));
         DANGER_ZONES.add(String.format(POSITION_FORMAT, x - 1, y - 1));
         DANGER_ZONES.add(String.format(POSITION_FORMAT, x - 1, 0));
